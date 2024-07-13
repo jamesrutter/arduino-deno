@@ -1,5 +1,6 @@
 // main.ts
-import { Hono } from 'hono';
+import { Context, Hono } from 'hono';
+import { serveStatic, upgradeWebSocket } from 'hono/deno';
 
 // Create a new Hono instance
 const app = new Hono();
@@ -12,8 +13,13 @@ app.use(async (c, next) => {
   console.log(`[API Performance] ${c.req.method} ${c.req.url} -> ${duration} ms`);
 });
 
+app.use('/', serveStatic({ path: 'static/index.html' }));
+
 // LANDING PAGE
-app.get('/', (c) => c.render('index.html'));
+app.get('/', (c) => {
+  console.log('GET /');
+  return c.render('Hello, World!');
+});
 
 // API ROUTES
 app.get('/api', (c) => {
@@ -53,6 +59,21 @@ app.get('/api/:sensor', (c) => {
     sensor,
   });
 });
+
+app.get(
+  '/ws',
+  upgradeWebSocket((_c) => {
+    return {
+      onMessage(event, ws) {
+        console.log(`Message from client: ${event.data}`);
+        ws.send('Hello from server!');
+      },
+      onClose: () => {
+        console.log('Connection closed');
+      },
+    };
+  })
+);
 
 // Start the server
 Deno.serve(app.fetch);
