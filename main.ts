@@ -70,8 +70,11 @@ app.get(
         ws.send('[ArDeno API] Websocket connection established.');
       },
       onMessage(event, ws) {
+        const messageStart = Date.now();
         console.log(`[WEBSOCKET SERVER] Message from client: ${event.data}`);
         ws.send('[ArDeno API] Message received.');
+        const messageDuration = Date.now() - messageStart;
+        console.log(`[WEBSOCKET SERVER] Performance -- Processing message in Deno took ${messageDuration} ms`);
       },
       onClose: (_event, ws) => {
         console.log('[WEBSOCKET SERVER] Connection closed.');
