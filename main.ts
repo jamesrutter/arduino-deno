@@ -5,6 +5,13 @@ import { Hono } from 'hono';
 // Create a new Hono instance
 const app = new Hono();
 
+app.use(async (c, next) => {
+  const start = Date.now();
+  await next();
+  const duration = Date.now() - start;
+  console.log(`[API Performance] ${c.req.method} ${c.req.url} -> ${duration} ms`);
+});
+
 // Add routes
 app.get('/', (c) => c.text('Arduino Web Application'));
 app.get('/api', (c) => {
