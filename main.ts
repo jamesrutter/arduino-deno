@@ -1,5 +1,5 @@
 // main.ts
-import { Context, Hono } from 'hono';
+import { Hono } from 'hono';
 import { serveStatic, upgradeWebSocket } from 'hono/deno';
 
 // Create a new Hono instance
@@ -13,7 +13,7 @@ app.use(async (c, next) => {
   console.log(`[API Performance] ${c.req.method} ${c.req.url} -> ${duration} ms`);
 });
 
-app.use('/', serveStatic({ path: 'static/index.html' }));
+app.use('/', serveStatic({ path: './static/index.html' }));
 
 // LANDING PAGE
 app.get('/', (c) => {
@@ -62,10 +62,21 @@ app.get('/api/:sensor', (c) => {
 
 app.get(
   '/ws',
-  upgradeWebSocket((_c) => {
+  upgradeWebSocket((c) => {
+    console.log('Incoming WebSocket connection');
+    console.log('Request:', JSON.stringify(c.req, null, 2));
+
     return {
+      onOpen(event, ws) {
+        console.log('WebSocket connection opened');
+        console.log('Event:', JSON.stringify(event, null, 2));
+        console.log('WebSocket:', JSON.stringify(ws, null, 2));
+        ws.send('Welcome to the WebSocket server!');
+      },
       onMessage(event, ws) {
         console.log(`Message from client: ${event.data}`);
+        console.log('Event:', JSON.stringify(event, null, 2));
+        console.log('WebSocket:', JSON.stringify(ws, null, 2));
         ws.send('Hello from server!');
       },
       onClose: () => {
