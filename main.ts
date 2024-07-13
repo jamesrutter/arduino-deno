@@ -62,29 +62,26 @@ app.get('/api/:sensor', (c) => {
 
 app.get(
   '/ws',
-  upgradeWebSocket((c) => {
-    console.log('Incoming WebSocket connection');
-    console.log('Request:', JSON.stringify(c.req, null, 2));
-
+  upgradeWebSocket((_c) => {
+    console.log('[WEBSOCKET SERVER] Incoming client connection...');
     return {
-      onOpen(event, ws) {
-        console.log('WebSocket connection opened');
-        console.log('Event:', JSON.stringify(event, null, 2));
-        console.log('WebSocket:', JSON.stringify(ws, null, 2));
-        ws.send('Welcome to the WebSocket server!');
+      onOpen(_event, ws) {
+        console.log('[WEBSOCKET SERVER] Connection opened.');
+        ws.send('[ArDeno API] Websocket connection established.');
       },
       onMessage(event, ws) {
-        console.log(`Message from client: ${event.data}`);
-        console.log('Event:', JSON.stringify(event, null, 2));
-        console.log('WebSocket:', JSON.stringify(ws, null, 2));
-        ws.send('Hello from server!');
+        console.log(`[WEBSOCKET SERVER] Message from client: ${event.data}`);
+        ws.send('[ArDeno API] Message received.');
       },
-      onClose: () => {
-        console.log('Connection closed');
+      onClose: (_event, ws) => {
+        console.log('[WEBSOCKET SERVER] Connection closed.');
+        ws.send('[ArDeno API] Closing connection...');
       },
     };
   })
 );
 
-// Start the server
+// Start the local development server
+// Deno.serve({ port: 3000, hostname: '0.0.0.0' }, app.fetch);
+// Start the production server for Deno Deploy
 Deno.serve(app.fetch);
