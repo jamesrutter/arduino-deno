@@ -1,10 +1,10 @@
-// Arduino Web Application API Server hosted on Deno Deploy with Hono
 // main.ts
 import { Hono } from 'hono';
 
 // Create a new Hono instance
 const app = new Hono();
 
+// Middleware to log the request method and URL
 app.use(async (c, next) => {
   const start = Date.now();
   await next();
@@ -12,8 +12,10 @@ app.use(async (c, next) => {
   console.log(`[API Performance] ${c.req.method} ${c.req.url} -> ${duration} ms`);
 });
 
-// Add routes
-app.get('/', (c) => c.text('Arduino Web Application'));
+// LANDING PAGE
+app.get('/', (c) => c.render('index.html'));
+
+// API ROUTES
 app.get('/api', (c) => {
   console.log('GET /api');
   return c.json({
