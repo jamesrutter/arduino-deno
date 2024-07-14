@@ -1,22 +1,40 @@
 // main.ts
 import type { WSContext } from 'hono/ws';
-import { MessageType, WebSocketMessage, isJoystickMessage, JoystickData } from './types.ts';
 import { Hono } from 'hono';
 import { serveStatic, upgradeWebSocket } from 'hono/deno';
 
-function process_joystick(data: JoystickData) {
-  const x = data.x ?? 0;
-  const y = data.y ?? 0;
-  const pressed = data.pressed ?? false;
-  return {
-    x,
-    y,
-    pressed: pressed,
-  };
+const udpSocket = Deno.listenDatagram({
+  hostname: '0.0.0.0',
+  port: 8000,
+  transport: 'udp',
+});
+
+console.log('UDP server listening on port 8000');
+
+// Function to handle UDP messages
+async function handle_udp() {
+  for await (const [data, _remoteAddr] of udpSocket) {
+    const message = new TextDecoder().decode(data);
+    console.log('Received UDP message:', message);
+
+    try {
+      const parsed_message = JSON.parse(message);
+      if (parsed_message.type === 'joystick') {
+        // Broadcast to all WebSocket clients
+        for (const client of clients) {
+          client.send(JSON.stringify(parsed_message.data));
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing UDP message:', error);
+    }
+  }
 }
 
 // Create a new Hono instance
 const app = new Hono();
+
+const clients = new Set<WSContext>();
 
 // Middleware to log the request method and URL
 app.use(async (c, next) => {
@@ -71,46 +89,16 @@ app.get('/api/:sensor', (c) => {
   });
 });
 
-const clients = new Set<WSContext>();
-
 app.get(
   '/ws',
   upgradeWebSocket((_c) => {
-    console.log('[WEBSOCKET]: Incoming client connection...');
     return {
       onOpen(_event, ws) {
-        console.log('[WEBSOCKET]: Opening new client connection...');
+        console.log(`[WEBSOCKET]: Client connected`);
         clients.add(ws);
       },
-      onMessage(event, ws) {
-        console.log(`[WEBSOCKET]: Attemping to parse the message...`);
-        try {
-          const parsed_message = JSON.parse(event.data.toString()) as WebSocketMessage;
-
-          switch (parsed_message.type) {
-            case MessageType.Identify:
-              break;
-            case MessageType.Joystick:
-              if (isJoystickMessage(parsed_message)) {
-                const processed_data = process_joystick(parsed_message.data);
-                console.log(
-                  `[WEBSOCKET | ${parsed_message.client} | ${parsed_message.type} | ${parsed_message.timestamp}]: x: ${processed_data.x}, y: ${processed_data.y}, pressed: ${processed_data.pressed}`
-                );
-                console.log(`[WEBSOCKET]: Sending data to clients...`);
-                for (const client of clients) {
-                  if (client !== ws) {
-                    client.send(JSON.stringify(processed_data));
-                  }
-                }
-              }
-              break;
-            default:
-              console.log(`[WEBSOCKET]: Unknown message type`);
-              break;
-          }
-        } catch (error) {
-          console.log(`[WEBSOCKET]: Error parsing message: ${error}`);
-        }
+      onMessage(_event, _ws) {
+        console.log('[WEBSOCKET]: Received message');
       },
       onClose: (_event, ws) => {
         console.log('[WEBSOCKET]: Connection closed.');
@@ -126,8 +114,10 @@ app.get(
 
 // LOCAL DEVELOPMENT SERVER
 // Start the local development server
-Deno.serve({ port: 3000, hostname: '0.0.0.0' }, app.fetch);
+// Deno.serve({ port: 3000, hostname: '0.0.0.0' }, app.fetch);
 
 // PRODUCTION SERVER
 // Start the production server for Deno Deploy
-// Deno.serve(app.fetch);
+Deno.serve(app.fetch);
+
+handle_udp();
