@@ -26,12 +26,6 @@ ws.onmessage = (event) => {
   const joystick_data = JSON.parse(event.data);
 
   updateDivPosition(joystick_data);
-
-  if (pressed) {
-    box.style.backgroundColor = 'blue';
-  } else {
-    box.style.backgroundColor = 'red';
-  }
 };
 
 ws.onerror = (error) => {
