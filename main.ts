@@ -1,19 +1,8 @@
 // main.ts
 import type { WSContext } from 'hono/ws';
-import { MessageType, WebSocketMessage, isJoystickMessage, JoystickData } from './types.ts';
+import { MessageType, WebSocketMessage, isJoystickMessage } from './types.ts';
 import { Hono } from 'hono';
 import { serveStatic, upgradeWebSocket } from 'hono/deno';
-
-function process_joystick(data: JoystickData) {
-  const x = data.x ?? 0;
-  const y = data.y ?? 0;
-  const pressed = data.pressed ?? false;
-  return {
-    x,
-    y,
-    pressed: pressed,
-  };
-}
 
 // Create a new Hono instance
 const app = new Hono();
@@ -92,14 +81,13 @@ app.get(
               break;
             case MessageType.Joystick:
               if (isJoystickMessage(parsed_message)) {
-                const processed_data = process_joystick(parsed_message.data);
                 console.log(
-                  `[WEBSOCKET | ${parsed_message.client} | ${parsed_message.type} | ${parsed_message.timestamp}]: x: ${processed_data.x}, y: ${processed_data.y}, pressed: ${processed_data.pressed}`
+                  `[WEBSOCKET | ${parsed_message.client} | ${parsed_message.type} | ${parsed_message.timestamp}]: x: ${parsed_message.data.x}, y: ${parsed_message.data.y}, pressed: ${parsed_message.data.s}`
                 );
                 console.log(`[WEBSOCKET]: Sending data to clients...`);
                 for (const client of clients) {
                   if (client !== ws) {
-                    client.send(JSON.stringify(processed_data));
+                    client.send(JSON.stringify(parsed_message.data));
                   }
                 }
               }

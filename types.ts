@@ -14,7 +14,7 @@ type ClientType = 'ESP32' | 'Browser' | 'Other';
 export interface JoystickData {
   x: number;
   y: number;
-  pressed: boolean;
+  s: boolean;
 }
 
 // Define interfaces for different message structures
