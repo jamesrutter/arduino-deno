@@ -1,6 +1,19 @@
 // main.ts
+import type { WSContext } from 'hono/ws';
+import { MessageType, WebSocketMessage, isJoystickMessage, JoystickData } from './types.ts';
 import { Hono } from 'hono';
 import { serveStatic, upgradeWebSocket } from 'hono/deno';
+
+function process_joystick(data: JoystickData) {
+  const x = data.x ?? 0;
+  const y = data.y ?? 0;
+  const pressed = data.pressed ?? false;
+  return {
+    x,
+    y,
+    pressed: pressed,
+  };
+}
 
 // Create a new Hono instance
 const app = new Hono();
@@ -13,13 +26,11 @@ app.use(async (c, next) => {
   console.log(`[API Performance] ${c.req.method} ${c.req.url} -> ${duration} ms`);
 });
 
-app.use('/', serveStatic({ path: './static/index.html' }));
+// Serve static files from the "static" directory
+app.use('/*', serveStatic({ root: './static' }));
 
-// LANDING PAGE
-app.get('/', (c) => {
-  console.log('GET /');
-  return c.render('Hello, World!');
-});
+// Serve the HTML file for the joystick demo
+app.use('/', serveStatic({ path: './static/index.html' }));
 
 // API ROUTES
 app.get('/api', (c) => {
@@ -60,31 +71,63 @@ app.get('/api/:sensor', (c) => {
   });
 });
 
+const clients = new Set<WSContext>();
+
 app.get(
   '/ws',
   upgradeWebSocket((_c) => {
-    console.log('[WEBSOCKET SERVER] Incoming client connection...');
+    console.log('[WEBSOCKET]: Incoming client connection...');
     return {
       onOpen(_event, ws) {
-        console.log('[WEBSOCKET SERVER] Connection opened.');
-        ws.send('[ArDeno API] Websocket connection established.');
+        console.log('[WEBSOCKET]: Opening new client connection...');
+        clients.add(ws);
       },
       onMessage(event, ws) {
-        const messageStart = Date.now();
-        console.log(`[WEBSOCKET SERVER] Message from client: ${event.data}`);
-        ws.send('[ArDeno API] Message received.');
-        const messageDuration = Date.now() - messageStart;
-        console.log(`[WEBSOCKET SERVER] Performance -- Processing message in Deno took ${messageDuration} ms`);
+        console.log(`[WEBSOCKET]: Attemping to parse the message...`);
+        try {
+          const parsed_message = JSON.parse(event.data.toString()) as WebSocketMessage;
+
+          switch (parsed_message.type) {
+            case MessageType.Identify:
+              break;
+            case MessageType.Joystick:
+              if (isJoystickMessage(parsed_message)) {
+                const processed_data = process_joystick(parsed_message.data);
+                console.log(
+                  `[WEBSOCKET | ${parsed_message.client} | ${parsed_message.type} | ${parsed_message.timestamp}]: x: ${processed_data.x}, y: ${processed_data.y}, pressed: ${processed_data.pressed}`
+                );
+                console.log(`[WEBSOCKET]: Sending data to clients...`);
+                for (const client of clients) {
+                  if (client !== ws) {
+                    client.send(JSON.stringify(processed_data));
+                  }
+                }
+              }
+              break;
+            default:
+              console.log(`[WEBSOCKET]: Unknown message type`);
+              break;
+          }
+        } catch (error) {
+          console.log(`[WEBSOCKET]: Error parsing message: ${error}`);
+        }
       },
       onClose: (_event, ws) => {
-        console.log('[WEBSOCKET SERVER] Connection closed.');
-        ws.send('[ArDeno API] Closing connection...');
+        console.log('[WEBSOCKET]: Connection closed.');
+        clients.delete(ws);
+      },
+      onError(event, ws) {
+        console.log('[WEBSOCKET]: An error occurred. \n\t', JSON.stringify(event, null, 2));
+        clients.delete(ws);
       },
     };
   })
 );
 
+// LOCAL DEVELOPMENT SERVER
 // Start the local development server
-// Deno.serve({ port: 3000, hostname: '0.0.0.0' }, app.fetch);
+Deno.serve({ port: 3000, hostname: '0.0.0.0' }, app.fetch);
+
+// PRODUCTION SERVER
 // Start the production server for Deno Deploy
-Deno.serve(app.fetch);
+// Deno.serve(app.fetch);
