@@ -65,7 +65,7 @@ function updateDivPosition(data) {
   box.style.left = `${bounded_x}px`;
   box.style.top = `${bounded_y}px`;
 
-  if (data.pressed) {
+  if (data.s) {
     box.style.backgroundColor = 'goldenrod';
   } else {
     box.style.backgroundColor = 'darksalmon';
