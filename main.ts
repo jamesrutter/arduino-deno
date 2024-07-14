@@ -114,8 +114,8 @@ app.get(
 
 // LOCAL DEVELOPMENT SERVER
 // Start the local development server
-Deno.serve({ port: 3000, hostname: '0.0.0.0' }, app.fetch);
+// Deno.serve({ port: 3000, hostname: '0.0.0.0' }, app.fetch);
 
 // PRODUCTION SERVER
 // Start the production server for Deno Deploy
-// Deno.serve(app.fetch);
+Deno.serve(app.fetch);
