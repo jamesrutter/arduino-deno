@@ -118,9 +118,20 @@ app.get(
   })
 );
 
+// if (Deno.env.get('DENO_DEPLOYMENT_ID')) {
+//   Deno.serve(app.fetch);
+// } else {
+//   const port = 3000;
+//   Deno.serve({ port, hostname: '0.0.0.0' }, app.fetch);
+// }
+
+// Serve static files from the "dist" directory in production
 if (Deno.env.get('DENO_DEPLOYMENT_ID')) {
-  Deno.serve(app.fetch);
+  app.use('/*', serveStatic({ root: './dist' }));
 } else {
-  const port = 3000;
-  Deno.serve({ port, hostname: '0.0.0.0' }, app.fetch);
+  // In development, proxy to Vite dev server
+  app.use('/*', async (c) => {
+    const res = await fetch(`http://localhost:8080${c.req.url}`);
+    return new Response(res.body, res);
+  });
 }

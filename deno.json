@@ -7,7 +7,7 @@
     "dev:backend": "deno run --watch -A server.ts",
     "build": "deno run -A --node-modules-dir npm:vite build",
     "preview": "deno run -A --node-modules-dir npm:vite preview",
-    "serve": "deno run --allow-net --allow-read https://deno.land/std@0.157.0/http/file_server.ts dist/"
+    "serve": "deno run -A server.ts & deno run --allow-net --allow-read https://deno.land/std@0.157.0/http/file_server.ts dist/"
   },
   "imports": {
     "hono": "jsr:@hono/hono",
