@@ -31,4 +31,4 @@ jobs:
         with:
           project: "arduino"
           entrypoint: "server.ts"
-          root: "dist"
+          root: ""
