@@ -1,10 +1,8 @@
 {
-  "name": "@arduino/ui",
   "version": "0.0.1",
   "description": "Arduino UI",
-  "main": "./src/server.ts",
-  "exports": "./mod.ts",
   "tasks": {
+    "dev": "deno run -A --watch server.ts & deno run -A --node-modules-dir npm:vite",
     "dev:frontend": "deno run -A --node-modules-dir npm:vite",
     "dev:backend": "deno run --watch --allow-net --allow-read server.ts",
     "build": "deno run -A --node-modules-dir npm:vite build",
