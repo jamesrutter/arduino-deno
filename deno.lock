@@ -259,12 +259,8 @@
   },
   "remote": {},
   "workspace": {
-    "members": {
-      "ui": {
-        "dependencies": [
-          "jsr:@hono/hono"
-        ]
-      }
-    }
+    "dependencies": [
+      "jsr:@hono/hono"
+    ]
   }
 }
