@@ -1,40 +1,11 @@
-// main.ts
-import type { WSContext } from 'hono/ws';
+// server.ts
+import { MessageType, type WebSocketMessage, isJoystickMessage } from './types.ts';
 import { Hono } from 'hono';
+import type { WSContext } from 'hono/ws';
 import { serveStatic, upgradeWebSocket } from 'hono/deno';
-
-const udpSocket = Deno.listenDatagram({
-  hostname: '0.0.0.0',
-  port: 8000,
-  transport: 'udp',
-});
-
-console.log('UDP server listening on port 8000');
-
-// Function to handle UDP messages
-async function handle_udp() {
-  for await (const [data, _remoteAddr] of udpSocket) {
-    const message = new TextDecoder().decode(data);
-    console.log('Received UDP message:', message);
-
-    try {
-      const parsed_message = JSON.parse(message);
-      if (parsed_message.type === 'joystick') {
-        // Broadcast to all WebSocket clients
-        for (const client of clients) {
-          client.send(JSON.stringify(parsed_message.data));
-        }
-      }
-    } catch (error) {
-      console.error('Error parsing UDP message:', error);
-    }
-  }
-}
 
 // Create a new Hono instance
 const app = new Hono();
-
-const clients = new Set<WSContext>();
 
 // Middleware to log the request method and URL
 app.use(async (c, next) => {
@@ -44,11 +15,7 @@ app.use(async (c, next) => {
   console.log(`[API Performance] ${c.req.method} ${c.req.url} -> ${duration} ms`);
 });
 
-// Serve static files from the "static" directory
-app.use('/*', serveStatic({ root: './static' }));
-
-// Serve the HTML file for the joystick demo
-app.use('/', serveStatic({ path: './static/index.html' }));
+app.use('/*', serveStatic({ root: './dist' }));
 
 // API ROUTES
 app.get('/api', (c) => {
@@ -89,35 +56,102 @@ app.get('/api/:sensor', (c) => {
   });
 });
 
+const wsClients = new Set<WSContext>();
+
 app.get(
   '/ws',
   upgradeWebSocket((_c) => {
+    console.log('[WEBSOCKET]: Incoming client connection...');
     return {
       onOpen(_event, ws) {
-        console.log(`[WEBSOCKET]: Client connected`);
-        clients.add(ws);
+        console.log('[WEBSOCKET]: Opening new client connection...');
+        wsClients.add(ws);
       },
-      onMessage(_event, _ws) {
-        console.log('[WEBSOCKET]: Received message');
+      onMessage(event, ws) {
+        console.log(`[WEBSOCKET]: Attempting to parse the message...`);
+        try {
+          const parsed_message = JSON.parse(event.data.toString()) as WebSocketMessage;
+          handleMessage(parsed_message, ws);
+        } catch (error) {
+          console.log(`[WEBSOCKET]: Error parsing message: ${error}`);
+        }
       },
       onClose: (_event, ws) => {
         console.log('[WEBSOCKET]: Connection closed.');
-        clients.delete(ws);
+        wsClients.delete(ws);
       },
       onError(event, ws) {
         console.log('[WEBSOCKET]: An error occurred. \n\t', JSON.stringify(event, null, 2));
-        clients.delete(ws);
+        wsClients.delete(ws);
       },
     };
   })
 );
 
-// LOCAL DEVELOPMENT SERVER
-// Start the local development server
-// Deno.serve({ port: 3000, hostname: '0.0.0.0' }, app.fetch);
+function handleMessage(parsed_message: WebSocketMessage, sender: WSContext | null) {
+  switch (parsed_message.type) {
+    case MessageType.Identify:
+      break;
+    case MessageType.Joystick:
+      if (isJoystickMessage(parsed_message)) {
+        console.log(
+          `[${parsed_message.client} | ${parsed_message.type} | ${parsed_message.timestamp}]: x: ${parsed_message.data.x}, y: ${parsed_message.data.y}, pressed: ${parsed_message.data.s}`
+        );
+        console.log(`Sending data to clients...`);
+        for (const client of wsClients) {
+          if (client !== sender) {
+            client.send(JSON.stringify(parsed_message.data));
+          }
+        }
+      }
+      break;
+    default:
+      console.log(`Unknown message type`);
+      break;
+  }
+}
 
-// PRODUCTION SERVER
-// Start the production server for Deno Deploy
-Deno.serve(app.fetch);
+// TCP Server
+const tcpServer = Deno.listen({ port: 8000 });
+console.log('TCP Server running on port 8000');
 
-handle_udp();
+async function handleTcpConnection(conn: Deno.Conn) {
+  const tcpReader = conn.readable.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    try {
+      const { value, done } = await tcpReader.read();
+      if (done) break;
+      const message = decoder.decode(value);
+      console.log('[TCP] Received:', message);
+
+      try {
+        const parsed_message = JSON.parse(message) as WebSocketMessage;
+        handleMessage(parsed_message, null);
+      } catch (error) {
+        console.log(`[TCP]: Error parsing message: ${error}`);
+      }
+    } catch (err) {
+      console.error('Failed to read from TCP connection:', err);
+      break;
+    }
+  }
+
+  tcpReader.releaseLock();
+  conn.close();
+}
+
+// Handle TCP connections
+(async () => {
+  for await (const conn of tcpServer) {
+    handleTcpConnection(conn);
+  }
+})();
+
+if (Deno.env.get('DENO_DEPLOYMENT_ID')) {
+  Deno.serve(app.fetch);
+} else {
+  const port = 3000;
+  Deno.serve({ port, hostname: '0.0.0.0' }, app.fetch);
+}
