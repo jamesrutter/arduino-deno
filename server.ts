@@ -26,12 +26,6 @@ app.use(async (c, next) => {
   console.log(`[API Performance] ${c.req.method} ${c.req.url} -> ${duration} ms`);
 });
 
-// Serve static files from the "static" directory
-app.use('/*', serveStatic({ root: './static' }));
-
-// Serve the HTML file for the joystick demo
-app.use('/', serveStatic({ path: './static/index.html' }));
-
 // API ROUTES
 app.get('/api', (c) => {
   console.log('GET /api');
@@ -124,10 +118,9 @@ app.get(
   })
 );
 
-// LOCAL DEVELOPMENT SERVER
-// Start the local development server
-Deno.serve({ port: 3000, hostname: '0.0.0.0' }, app.fetch);
-
-// PRODUCTION SERVER
-// Start the production server for Deno Deploy
-// Deno.serve(app.fetch);
+if (Deno.env.get('DENO_DEPLOYMENT_ID')) {
+  Deno.serve(app.fetch);
+} else {
+  const port = 3000;
+  Deno.serve({ port, hostname: '0.0.0.0' }, app.fetch);
+}
