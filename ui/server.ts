@@ -1,8 +1,8 @@
 // main.ts
-import type { WSContext } from 'hono/ws';
-import { MessageType, WebSocketMessage, isJoystickMessage, JoystickData } from './types.ts';
 import { Hono } from 'hono';
-import { serveStatic, upgradeWebSocket } from 'hono/deno';
+// import type { WSContext } from 'hono/ws';
+import { MessageType, WebSocketMessage, isJoystickMessage, JoystickData } from './src/types.ts';
+// import { serveStatic, upgradeWebSocket } from 'hono/deno';
 
 function process_joystick(data: JoystickData) {
   const x = data.x ?? 0;
