@@ -1,11 +1,15 @@
 // server.ts
 import { MessageType, type WebSocketMessage, isJoystickMessage } from './types.ts';
+import * as MQTT from 'mqtt';
 import { Hono } from 'hono';
 import type { WSContext } from 'hono/ws';
 import { serveStatic, upgradeWebSocket } from 'hono/deno';
 
 // Create a new Hono instance
 const app = new Hono();
+
+//  Create a new MQTT client
+const mqtt = MQTT.connect('mqtt://3.137.214.188');
 
 // Middleware to log the request method and URL
 app.use(async (c, next) => {
@@ -15,7 +19,7 @@ app.use(async (c, next) => {
   console.log(`[API Performance] ${c.req.method} ${c.req.url} -> ${duration} ms`);
 });
 
-app.use('/*', serveStatic({ root: './dist' }));
+app.use('/*', serveStatic({ root: './static' }));
 
 // API ROUTES
 app.get('/api', (c) => {
@@ -67,15 +71,6 @@ app.get(
         console.log('[WEBSOCKET]: Opening new client connection...');
         wsClients.add(ws);
       },
-      onMessage(event, ws) {
-        console.log(`[WEBSOCKET]: Attempting to parse the message...`);
-        try {
-          const parsed_message = JSON.parse(event.data.toString()) as WebSocketMessage;
-          handleMessage(parsed_message, ws);
-        } catch (error) {
-          console.log(`[WEBSOCKET]: Error parsing message: ${error}`);
-        }
-      },
       onClose: (_event, ws) => {
         console.log('[WEBSOCKET]: Connection closed.');
         wsClients.delete(ws);
@@ -88,7 +83,7 @@ app.get(
   })
 );
 
-function handleMessage(parsed_message: WebSocketMessage, sender: WSContext | null) {
+function handleMessage(parsed_message: WebSocketMessage) {
   switch (parsed_message.type) {
     case MessageType.Identify:
       break;
@@ -97,11 +92,8 @@ function handleMessage(parsed_message: WebSocketMessage, sender: WSContext | nul
         console.log(
           `[${parsed_message.client} | ${parsed_message.type} | ${parsed_message.timestamp}]: x: ${parsed_message.data.x}, y: ${parsed_message.data.y}, pressed: ${parsed_message.data.s}`
         );
-        console.log(`Sending data to clients...`);
         for (const client of wsClients) {
-          if (client !== sender) {
-            client.send(JSON.stringify(parsed_message.data));
-          }
+          client.send(JSON.stringify(parsed_message.data));
         }
       }
       break;
@@ -111,43 +103,24 @@ function handleMessage(parsed_message: WebSocketMessage, sender: WSContext | nul
   }
 }
 
-// TCP Server
-const tcpServer = Deno.listen({ port: 8000 });
-console.log('TCP Server running on port 8000');
-
-async function handleTcpConnection(conn: Deno.Conn) {
-  const tcpReader = conn.readable.getReader();
-  const decoder = new TextDecoder();
-
-  while (true) {
-    try {
-      const { value, done } = await tcpReader.read();
-      if (done) break;
-      const message = decoder.decode(value);
-      console.log('[TCP] Received:', message);
-
-      try {
-        const parsed_message = JSON.parse(message) as WebSocketMessage;
-        handleMessage(parsed_message, null);
-      } catch (error) {
-        console.log(`[TCP]: Error parsing message: ${error}`);
-      }
-    } catch (err) {
-      console.error('Failed to read from TCP connection:', err);
-      break;
+mqtt.on('connect', () => {
+  console.log('Connected to MQTT broker');
+  mqtt.subscribe('joystick/data', (err) => {
+    if (!err) {
+      console.log('Subscribed to joystick/data topic');
     }
-  }
+  });
+});
 
-  tcpReader.releaseLock();
-  conn.close();
-}
-
-// Handle TCP connections
-(async () => {
-  for await (const conn of tcpServer) {
-    handleTcpConnection(conn);
+mqtt.on('message', (topic, message) => {
+  console.log(`Received message on topic ${topic}: ${message.toString()}`);
+  try {
+    const parsed_message = JSON.parse(message.toString()) as WebSocketMessage;
+    handleMessage(parsed_message);
+  } catch (error) {
+    console.log(`Error parsing MQTT message: ${error}`);
   }
-})();
+});
 
 if (Deno.env.get('DENO_DEPLOYMENT_ID')) {
   Deno.serve(app.fetch);
