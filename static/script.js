@@ -3,7 +3,7 @@
  * Establish a WebSocket connection.
  * @type {WebSocket}
  */
-const ws = new WebSocket('ws://localhost/ws');
+const ws = new WebSocket(`ws://${window.location.host}/ws`);
 // const ws = new WebSocket('ws://localhost:3000/ws'); // For development
 
 /**
