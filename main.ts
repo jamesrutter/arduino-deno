@@ -89,9 +89,9 @@ function handleMessage(parsed_message: WebSocketMessage) {
       break;
     case MessageType.Joystick:
       if (isJoystickMessage(parsed_message)) {
-        console.log(
-          `[${parsed_message.client} | ${parsed_message.type} | ${parsed_message.timestamp}]: x: ${parsed_message.data.x}, y: ${parsed_message.data.y}, pressed: ${parsed_message.data.s}`
-        );
+        // console.log(
+        //   `[${parsed_message.client} | ${parsed_message.type} | ${parsed_message.timestamp}]: x: ${parsed_message.data.x}, y: ${parsed_message.data.y}, pressed: ${parsed_message.data.s}`
+        // );
         for (const client of wsClients) {
           client.send(JSON.stringify(parsed_message.data));
         }
@@ -112,8 +112,8 @@ mqtt.on('connect', () => {
   });
 });
 
-mqtt.on('message', (topic, message) => {
-  console.log(`Received message on topic ${topic}: ${message.toString()}`);
+mqtt.on('message', (_topic, message) => {
+  // console.log(`Received message on topic ${topic}: ${message.toString()}`);
   try {
     const parsed_message = JSON.parse(message.toString()) as WebSocketMessage;
     handleMessage(parsed_message);

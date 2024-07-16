@@ -3,7 +3,8 @@
  * Establish a WebSocket connection.
  * @type {WebSocket}
  */
-const ws = new WebSocket('ws://localhost:3000/ws');
+const ws = new WebSocket('ws://localhost:80/ws');
+// const ws = new WebSocket('ws://localhost:3000/ws'); // For development
 
 /**
  * The HTML element that represents box controlled by the joystick.
