@@ -60,8 +60,8 @@ function updateDivPosition(data) {
   box.style.top = `${bounded_y}px`;
 
   if (data.s) {
-    box.style.backgroundColor = 'goldenrod';
+    box.style.backgroundColor = 'palevioletred';
   } else {
-    box.style.backgroundColor = 'darksalmon';
+    box.style.backgroundColor = 'darkgrey';
   }
 }
